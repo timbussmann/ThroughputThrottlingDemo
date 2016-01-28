@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using System.Transactions;
 using NServiceBus;
 using Octokit;
 
@@ -7,14 +8,20 @@ namespace ThroughputThrottlingDemo
 {
     public class GitHubSearchHandler : IHandleMessages<SearchGitHub>
     {
-        private static readonly GitHubClient GitHubClient = new GitHubClient(new ProductHeaderValue("IgalSpamsYou"));
+        // use anonymous access which has very strict rate limitations
+        private static readonly GitHubClient GitHubClient = new GitHubClient(new ProductHeaderValue("ThroughputThrottlingDemo"));
 
         public async Task Handle(SearchGitHub message, IMessageHandlerContext context)
         {
             Console.WriteLine("received search request");
-            string searchTerm = "IBus";
-            SearchCodeResult result = await GitHubClient.Search.SearchCode(new SearchCodeRequest(searchTerm, "Particular", "NServiceBus"));
-            Console.WriteLine($"Found {result.TotalCount} results for {searchTerm}.");
+
+            SearchCodeResult result = await GitHubClient.Search.SearchCode(
+                new SearchCodeRequest(
+                    message.SearchFor, 
+                    message.RepositoryOwner, 
+                    message.Repository));
+
+            Console.WriteLine($"Found {result.TotalCount} results for {message.SearchFor}.");
         }
     }
 }
