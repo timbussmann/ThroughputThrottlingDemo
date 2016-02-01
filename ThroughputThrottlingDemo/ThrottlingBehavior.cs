@@ -17,28 +17,28 @@ namespace ThroughputThrottlingDemo
             if (rateLimitReset.HasValue && rateLimitReset >= DateTime.UtcNow)
             {
                 Console.WriteLine($"rate limit already exceeded. Retry after {rateLimitReset} UTC");
-                await DelayMessage(context, rateLimitReset.Value);
+                await DelayMessage(context, rateLimitReset.Value).ConfigureAwait(false); ;
                 return;
             }
 
             try
             {
-                await next();
+                await next().ConfigureAwait(false);
             }
             catch (RateLimitExceededException ex)
             {
                 DateTime? nextReset = nextRateLimitReset = ex.Reset.UtcDateTime;
                 Console.WriteLine($"rate limit exceeded. Limit resets resets at {nextReset} UTC");
-                await DelayMessage(context, nextReset.Value);
+                await DelayMessage(context, nextReset.Value).ConfigureAwait(false); ;
             }
         }
 
-        private static async Task DelayMessage(IInvokeHandlerContext context, DateTime deliverAt)
+        private static Task DelayMessage(IInvokeHandlerContext context, DateTime deliverAt)
         {
             SendOptions sendOptions = new SendOptions();
             sendOptions.RouteToLocalEndpointInstance();
             sendOptions.DoNotDeliverBefore(deliverAt);
-            await context.Send(context.MessageBeingHandled, sendOptions);
+            return context.Send(context.MessageBeingHandled, sendOptions);
         }
     }
 }
