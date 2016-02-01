@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using NServiceBus;
 using NServiceBus.Pipeline;
@@ -8,15 +9,15 @@ namespace ThroughputThrottlingDemo
 {
     public class ThrottlingBehavior : Behavior<IInvokeHandlerContext>
     {
-        // note this is no threadsafe implementation, only use this with 'configuration.LimitMessageProcessingConcurrencyTo(1);'!
         private static DateTime? nextRateLimitReset = null;
 
         public override async Task Invoke(IInvokeHandlerContext context, Func<Task> next)
         {
-            if (nextRateLimitReset.HasValue && nextRateLimitReset >= DateTime.UtcNow)
+            DateTime? rateLimitReset = nextRateLimitReset;
+            if (rateLimitReset.HasValue && rateLimitReset >= DateTime.UtcNow)
             {
-                Console.WriteLine($"rate limit already exceeded. Retry after {nextRateLimitReset} UTC");
-                await DelayMessage(context);
+                Console.WriteLine($"rate limit already exceeded. Retry after {rateLimitReset} UTC");
+                await DelayMessage(context, rateLimitReset.Value);
                 return;
             }
 
@@ -26,17 +27,17 @@ namespace ThroughputThrottlingDemo
             }
             catch (RateLimitExceededException ex)
             {
-                nextRateLimitReset = ex.Reset.UtcDateTime;
-                Console.WriteLine($"rate limit exceeded. Limit resets resets at {nextRateLimitReset} UTC");
-                await DelayMessage(context);
+                DateTime? nextReset = nextRateLimitReset = ex.Reset.UtcDateTime;
+                Console.WriteLine($"rate limit exceeded. Limit resets resets at {nextReset} UTC");
+                await DelayMessage(context, nextReset.Value);
             }
         }
 
-        private static async Task DelayMessage(IInvokeHandlerContext context)
+        private static async Task DelayMessage(IInvokeHandlerContext context, DateTime deliverAt)
         {
-            var sendOptions = new SendOptions();
+            SendOptions sendOptions = new SendOptions();
             sendOptions.RouteToLocalEndpointInstance();
-            sendOptions.DoNotDeliverBefore(nextRateLimitReset.Value);
+            sendOptions.DoNotDeliverBefore(deliverAt);
             await context.Send(context.MessageBeingHandled, sendOptions);
         }
     }
