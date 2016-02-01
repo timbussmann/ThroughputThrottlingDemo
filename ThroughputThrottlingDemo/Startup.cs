@@ -11,7 +11,12 @@ namespace ThroughputThrottlingDemo
             Console.WriteLine("sending message...");
             for (int i = 0; i < 100; i++)
             {
-                await session.SendLocal(new SearchGitHub());
+                await session.SendLocal(new SearchGitHub
+                {
+                    Repository = "NServiceBus",
+                    RepositoryOwner = "Particular",
+                    SearchFor = "IBus"
+                });
             }
             Console.WriteLine("message sent.");
         }

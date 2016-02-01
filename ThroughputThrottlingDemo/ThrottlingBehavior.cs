@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Threading;
 using System.Threading.Tasks;
 using NServiceBus;
 using NServiceBus.Pipeline;
@@ -9,7 +8,7 @@ namespace ThroughputThrottlingDemo
 {
     public class ThrottlingBehavior : Behavior<IInvokeHandlerContext>
     {
-        private static DateTime? nextRateLimitReset = null;
+        private static DateTime? nextRateLimitReset;
 
         public override async Task Invoke(IInvokeHandlerContext context, Func<Task> next)
         {
@@ -17,7 +16,7 @@ namespace ThroughputThrottlingDemo
             if (rateLimitReset.HasValue && rateLimitReset >= DateTime.UtcNow)
             {
                 Console.WriteLine($"rate limit already exceeded. Retry after {rateLimitReset} UTC");
-                await DelayMessage(context, rateLimitReset.Value).ConfigureAwait(false); ;
+                await DelayMessage(context, rateLimitReset.Value).ConfigureAwait(false);
                 return;
             }
 
@@ -29,7 +28,7 @@ namespace ThroughputThrottlingDemo
             {
                 DateTime? nextReset = nextRateLimitReset = ex.Reset.UtcDateTime;
                 Console.WriteLine($"rate limit exceeded. Limit resets resets at {nextReset} UTC");
-                await DelayMessage(context, nextReset.Value).ConfigureAwait(false); ;
+                await DelayMessage(context, nextReset.Value).ConfigureAwait(false);
             }
         }
 
